@@ -59,6 +59,7 @@ func (d *CLIDriver) ReadText() (string, error) {
 	if runtime.GOOS == "darwin" {
 		if _, err := exec.LookPath("pbpaste"); err == nil {
 			cmd := exec.CommandContext(ctx, "pbpaste")
+			cmd.Env = utf8LocaleEnv(os.Environ())
 			out, err := cmd.Output()
 			if err != nil {
 				return "", err
@@ -115,6 +116,7 @@ func (d *CLIDriver) WriteText(text string) error {
 	if runtime.GOOS == "darwin" {
 		if _, err := exec.LookPath("pbcopy"); err == nil {
 			cmd := exec.CommandContext(ctx, "pbcopy")
+			cmd.Env = utf8LocaleEnv(os.Environ())
 			cmd.Stdin = strings.NewReader(text)
 			return cmd.Run()
 		}
@@ -160,6 +162,24 @@ func (d *CLIDriver) WriteText(text string) error {
 
 func (d *CLIDriver) Clear() error {
 	return d.WriteText("")
+}
+
+// utf8LocaleEnv is the environment pbcopy and pbpaste run in. They convert
+// between the pasteboard and their streams in the encoding of the locale,
+// and settle on UTF-8 only when every locale variable that is set names it:
+// LANG=C beside LC_ALL=en_US.UTF-8, or LC_COLLATE=C beside a UTF-8 LANG,
+// still turns each non-ASCII character into '?'. So the variables are not
+// added to but replaced, all of them, by one that says UTF-8.
+func utf8LocaleEnv(environ []string) []string {
+	env := make([]string, 0, len(environ)+1)
+	for _, kv := range environ {
+		name, _, _ := strings.Cut(kv, "=")
+		if name == "LANG" || strings.HasPrefix(name, "LC_") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return append(env, "LANG=en_US.UTF-8")
 }
 
 // Helper to run command safely with input

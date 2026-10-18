@@ -7,7 +7,8 @@ import (
 	"sync"
 )
 
-// DarwinDriver manages macOS NSPasteboard access via pbcopy/pbpaste or direct bridge.
+// DarwinDriver talks to NSPasteboard directly (see pasteboard_darwin.go) and
+// falls back to pbcopy/pbpaste only when AppKit cannot be loaded.
 type DarwinDriver struct {
 	mu  sync.Mutex
 	cli *CLIDriver
@@ -33,17 +34,26 @@ func (d *DarwinDriver) Available() bool {
 func (d *DarwinDriver) ReadText() (string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if p, err := loadNativePasteboard(); err == nil {
+		return p.readText()
+	}
 	return d.cli.ReadText()
 }
 
 func (d *DarwinDriver) WriteText(text string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if p, err := loadNativePasteboard(); err == nil {
+		return p.writeText(text)
+	}
 	return d.cli.WriteText(text)
 }
 
 func (d *DarwinDriver) Clear() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if p, err := loadNativePasteboard(); err == nil {
+		return p.clear()
+	}
 	return d.cli.Clear()
 }
