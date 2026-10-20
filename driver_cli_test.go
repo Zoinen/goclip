@@ -1,8 +1,35 @@
 package goclip
 
 import (
+	"slices"
 	"testing"
 )
+
+// Every locale variable has to go, not only the ones that say otherwise:
+// pbpaste gives '?' for LANG=C next to a UTF-8 LC_ALL, and for LC_COLLATE=C
+// next to a UTF-8 LANG.
+func TestUTF8LocaleEnv(t *testing.T) {
+	got := utf8LocaleEnv([]string{
+		"HOME=/Users/u",
+		"LANG=C",
+		"LC_ALL=en_US.UTF-8",
+		"LC_COLLATE=C",
+		"LC_CTYPE=UTF-8",
+		"__CF_USER_TEXT_ENCODING=0x1F5:0x0:0x0",
+		"LANGUAGE=ru",
+		"PATH=/usr/bin",
+	})
+	want := []string{
+		"HOME=/Users/u",
+		"__CF_USER_TEXT_ENCODING=0x1F5:0x0:0x0",
+		"LANGUAGE=ru",
+		"PATH=/usr/bin",
+		"LANG=en_US.UTF-8",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("utf8LocaleEnv:\n got %q\nwant %q", got, want)
+	}
+}
 
 func TestCLIDriver_Basics(t *testing.T) {
 	driver := NewCLIDriver()
